@@ -1,14 +1,15 @@
 import express from 'express';
-import { exec, execSync } from 'child_process'; // 👈 AQUI
+import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import cors from 'cors';
 
+const execPromise = promisify(exec);
+
+const app = express();
 app.use(cors());
 
-const execPromise = promisify(exec);
-const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/download/:id', async (req, res) => {
