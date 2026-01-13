@@ -3,6 +3,9 @@ import { exec, execSync } from 'child_process'; // 👈 AQUI
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+import cors from 'cors';
+
+app.use(cors());
 
 const execPromise = promisify(exec);
 const app = express();
@@ -20,32 +23,52 @@ app.get('/download/:id', async (req, res) => {
         }
 
         const ytDlpPath = path.join(root, 'yt-dlp');
+
+        // garante permissão
         try {
             execSync(`chmod +x "${ytDlpPath}"`);
-        } catch (e) {
-            console.warn('chmod falhou ou já estava ok');
-        }
-        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const output = path.join(downloadsDir, '%(title)s [%(id)s].webm');
+        } catch {}
 
-        const command = `"${ytDlpPath}" -f bestaudio[ext=webm] -o "${output}" "${videoUrl}"`;
+        const outputTemplate = path.join(
+            downloadsDir,
+            '%(title)s [%(id)s].webm'
+        );
 
-        console.log('▶ Executando:', command);
-
-        await execPromise(command, {
-            maxBuffer: 1024 * 1024 * 10
-        });
-
-        const files = fs
+        // verifica se já existe
+        let file = fs
             .readdirSync(downloadsDir)
-            .filter(f => f.includes(videoId));
+            .find(f => f.includes(videoId) && f.endsWith('.webm'));
 
-        res.json({
-            ok: true,
-            platform: process.platform,
-            files
-        });
+        if (!file) {
+            const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
+            const command = `"${ytDlpPath}" -f bestaudio[ext=webm] -o "${outputTemplate}" "${videoUrl}"`;
+
+            console.log('▶ Baixando:', command);
+
+            await execPromise(command, {
+                maxBuffer: 1024 * 1024 * 20
+            });
+
+            file = fs
+                .readdirSync(downloadsDir)
+                .find(f => f.includes(videoId) && f.endsWith('.webm'));
+        }
+        
+        if (!file) {
+            return res.status(404).send('Arquivo não encontrado');
+        }
+
+        const filePath = path.join(downloadsDir, file);
+
+        res.setHeader('Content-Type', 'audio/webm');
+        res.setHeader(
+            'Content-Disposition',
+            `inline; filename="${encodeURIComponent(file)}"`
+        );
+
+        // envia o áudio
+        res.sendFile(filePath);
     } catch (err) {
         console.error(err);
         res.status(500).json({
