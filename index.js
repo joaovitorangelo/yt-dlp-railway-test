@@ -1,5 +1,5 @@
 import express from 'express';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process'; // 👈 AQUI
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
@@ -20,6 +20,11 @@ app.get('/download/:id', async (req, res) => {
         }
 
         const ytDlpPath = path.join(root, 'yt-dlp');
+        try {
+            execSync(`chmod +x "${ytDlpPath}"`);
+        } catch (e) {
+            console.warn('chmod falhou ou já estava ok');
+        }
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const output = path.join(downloadsDir, '%(title)s [%(id)s].webm');
 
